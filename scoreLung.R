@@ -28,8 +28,6 @@ hif1 <- names(eg2sym)[match(hif1Genes, eg2sym)];
 stemCells <- read.table("~/stemCells.txt",stringsAsFactors=FALSE)[,1]
 stem <- names(eg2sym)[match(stemCells, eg2sym)];
 
-
-
 # calculate signature enrichment for a single signature
 calcSignatureEnrichment <- function (gic, sig) 
 {
@@ -59,8 +57,11 @@ compareSignatureEnrichment <- function (gic, sig1, sigBreast)
 			row.names=1))
 	return(dat)
 }
+# Get all FIC data
+res <- synapseQuery('select id, name, numSamples, platform, study, tissueType from entity where entity.benefactorId=="syn1450028" and entity.status=="fic"');
 
-res <- synapseQuery('select id, name, numSamples, platform from entity where entity.benefactorId=="syn1450028" and entity.status=="processed"');
+
+res <- synapseQuery('select id, name, numSamples, platform, study, tissueType from entity where entity.benefactorId=="syn1450028" and entity.status=="processed"');
 res <- res[grep("GSE", res$entity.name),]
 res <- res[!grepl('unsupervised.', res$entity.name),]
 ids <- c(which(res$entity.platform == "hgu133plus2"),
@@ -69,7 +70,8 @@ ids <- c(which(res$entity.platform == "hgu133plus2"),
 		which(res$entity.platform == "hgu133a2"),
 		which(res$entity.platform == "hugene10stv1"),
 		which(res$entity.platform == "huex10stv2"))
-		
+
+
 ents <- list()
 for(i in 1:length(ids)){ 
 	cat("\r", i); 
@@ -119,16 +121,14 @@ scores <- data.frame(celFileName =  unlist(sapply(arScores, names)),
 		rpl=unlist(rplScores),
 		rps=unlist(rpsScores),
 		myc=unlist(mycScores),
-		tcell=unlist(tcellScores))
+		tcell=unlist(tcellScores),
+		stemCell=unlist(stemScores),
+		hif1 = unlist(hif1Scores))
 		
-res$study <- sapply(strsplit(res$entity.name , '_'),function(x){ x[1] })
-res2 <- synapseQuery('select id, name, numSamples, platform,study,tissueType from entity where entity.benefactorId=="syn1450028" and entity.status=="processed"');
-res2 <- res2[grep("GSE", res2$entity.name),]
-res2 <- res2[ids,]
 
-ids2 <- which(res2$entity.tissueType=="" | is.na(res2$entity.tissueType))
-res2$entity.tissueType[ids2] <- allCancers$tissue[match(res2$entity.study[ids2], allCancers$name)]
-res2$numSamples <- sapply(arScores, length)
+ids2 <- which(res$entity.tissueType=="" | is.na(res$entity.tissueType))
+res$entity.tissueType[ids2] <- allCancers$tissue[match(res$entity.study[ids2], allCancers$name)]
+res$numSamples <- sapply(arScores, length)
 
 for(i in 1:length(ids2)){
 	ent <- getEntity(res2$entity.id[ids2[i]]); 
@@ -137,6 +137,9 @@ for(i in 1:length(ids2)){
 }
 
 meta <- res2
+scores$study <- rep(meta$entity.study, sapply(arScores, length))
+scores$platform <- rep(meta$entity.platform, sapply(arScores, length))
+scores$tissue<- rep(meta$entity.tissueType, sapply(arScores, length))
 save(meta, scores, file="~/me.Rda")
 
 allCancers <- read.table("~/allCancers.txt",sep="\t",stringsAsFactors=FALSE,header=TRUE)
