@@ -1,4 +1,4 @@
-qry <- synapseQuery('select id, name, numSamples, study,platform from entity where entity.benefactorId == "syn1450028" and entity.status=="processed"')
+qry <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="processed"')
 qry <- qry[grepl("GSE",qry$entity.name),]
 qry$study <- sapply(strsplit(qry$entity.name,'_'), function(x){ x[[1]]})
 allCancers <- read.table("~/allCancers.txt",sep="\t",stringsAsFactors=FALSE,header=TRUE)
@@ -11,12 +11,12 @@ toProcess <- toProcess[grepl("^GSE", toProcess$name),]
 toProcess <- toProcess[order(toProcess$numSamples),]
 toProcess <- toProcess[c(-1,-45),]
 toProcess <- toProcess[!duplicated(toProcess$name),]
-toProcess <- cbind(toProcess[,c(1,2,11,12)],rep(1:9,times=5)[1:nrow(toProcess)])
+toProcess <- cbind(toProcess[,c(1,2,10,11,12)],rep(1:9,times=5)[1:nrow(toProcess)])
 colnames(toProcess)[5] <- 'bin'
 toProcess <- toProcess[order(toProcess[,5]),]
 
-ids <- which(toProcess$bin == 9)
-cmds <- paste('Rscript affy3Prime.R', toProcess$name[ids])
+ids <- which(toProcess$bin == 2)
+cmds <- paste('Rscript affy3Prime.R', toProcess$name[ids], ';')
 sapply(cmds, function(x){
 			cat(x, ' & ', "\n")
 		})
@@ -33,8 +33,6 @@ write.table(cmds, row.names=FALSE, quote=FALSE)
 					row.names=1))
 	return(dat)
 }
-
-
 
 qry <- .getRawEntity('GSE19949')
 rawEntity <- loadEntity(qry$entity.id[1])

@@ -40,12 +40,12 @@ calcSignatureEnrichment <- function (gic, sig)
 }
 
 # compare signature enrichment between two signatures
-compareSignatureEnrichment <- function (gic, sig1, sigBreast) 
+compareSignatureEnrichment <- function (gic, sig1, sig2) 
 {
 	sig1 <- intersect(sig1, rownames(gic))
-	sigBreast <- intersect(sigBreast, rownames(gic))
+	sig2 <- intersect(sig2, rownames(gic))
 	ks.results <- apply(gic, 2, function(x) {
-				res <- ks.test(x[sig1], x[sigBreast], alternative = "greater")
+				res <- ks.test(x[sig1], x[sig2], alternative = "greater")
 				c(res$p.value, res$statistic)
 			})
 }
@@ -57,13 +57,12 @@ compareSignatureEnrichment <- function (gic, sig1, sigBreast)
 			row.names=1))
 	return(dat)
 }
-# Get all FIC data
-res <- synapseQuery('select id, name, numSamples, platform, study, tissueType from entity where entity.benefactorId=="syn1450028" and entity.status=="fic"');
-
 
 res <- synapseQuery('select id, name, numSamples, platform, study, tissueType from entity where entity.benefactorId=="syn1450028" and entity.status=="processed"');
 res <- res[grep("GSE", res$entity.name),]
 res <- res[!grepl('unsupervised.', res$entity.name),]
+res <- res[!duplicated(res$entity.name),]
+
 ids <- c(which(res$entity.platform == "hgu133plus2"),
 		which(res$entity.platform == "hgu133a"),
 		which(res$entity.platform == "hthgu133a"),
@@ -71,11 +70,31 @@ ids <- c(which(res$entity.platform == "hgu133plus2"),
 		which(res$entity.platform == "hugene10stv1"),
 		which(res$entity.platform == "huex10stv2"))
 
+res <- res[ids,]
+
+# Build ER signature
+breastIds <- res$entity.id[which(res$entity.tissueType == "breast")]
+sapply(breastIds[1:10], function(x){ 
+			cat(x,"\n")
+			dat <- .loadEntity(x)
+			u <- fs(dat)
+			cor(u$v[,1], dat['2099_eg',])
+		}) -> cors
+good <- names(which(abs(cors) > 0.7))
+sapply(good, function(x){ 
+			cat(x,"\n")
+			dat <- .loadEntity(x)
+			cor(t(dat), dat['2099_eg',])
+		}) -> cors2
+rownames(cors2) <- rownames(.loadEntity(good[1]))
+erCors <- rowMeans(cors2)
+erPos <- names(sort(-erCors))[1:250]
+erNeg <- names(sort(erCors))[1:250]
 
 ents <- list()
-for(i in 1:length(ids)){ 
+for(i in 1:nrow(res)){ 
 	cat("\r", i); 
-	ents[[i]] <- .loadEntity(res$entity.id[ids[i]])
+	ents[[i]] <- .loadEntity(res$entity.id[i])
 }
 
 arScores <- list()
@@ -85,6 +104,10 @@ mycScores <- list()
 tcellScores <- list()
 stemScores <- list()
 hif1Scores <- list()
+erPosScores <- list()
+erNegScores <- list()
+erNegvPosScores <- list()
+erPosvNegScores <- list()
 
 nms <- rownames(ents[[1]])
 for(i in 2:length(ents)){
@@ -95,11 +118,11 @@ dat2 <- as.matrix(ents[[1]])[nms,]
 allDat <- matrix(NA, nr=length(nms), nc=sum(sapply(ents, dim)[2,]))
 
 for(i in 1:length(ents)){
+#for(i in c(15,16,35)){
 	cat("\r",i)
 	dat2 <- as.matrix(ents[[i]])[nms,]
 	mode(dat2) <- "numeric"
 	rownames(dat2) <- gsub("_mt", "_eg", rownames(dat2))
-	#	sig <- calcSignatureEnrichment(dat2, mycSigGenes)
 	sig <- calcSignatureEnrichment(dat2, arSig)
 	arScores[[i]] <- sig[2,]
 	sig <- calcSignatureEnrichment(dat2, rpl)
@@ -114,6 +137,14 @@ for(i in 1:length(ents)){
 	hif1Scores[[i]] <- sig[2,]
 	sig <- calcSignatureEnrichment(dat2, stem)
 	stemScores[[i]] <- sig[2,]
+	sig <- calcSignatureEnrichment(dat2, erPos)
+	erPosScores[[i]] <- sig[2,]
+	sig <- calcSignatureEnrichment(dat2, erNeg)
+	erNegScores[[i]] <- sig[2,]
+	s1 <- compareSignatureEnrichment(dat2, erPos, erNeg)
+	erNegvPosScores[[i]] <- s1[2,]
+	s2 <- compareSignatureEnrichment(dat2, erNeg, erPos)
+	erPosvNegScores[[i]] <- s2[2,]
 }
 
 scores <- data.frame(celFileName =  unlist(sapply(arScores, names)),
@@ -123,23 +154,29 @@ scores <- data.frame(celFileName =  unlist(sapply(arScores, names)),
 		myc=unlist(mycScores),
 		tcell=unlist(tcellScores),
 		stemCell=unlist(stemScores),
-		hif1 = unlist(hif1Scores))
+		hif1 = unlist(hif1Scores),
+		erPos = unlist(erPosScores),
+		erNeg = unlist(erNegScores),
+		erPosvNeg = unlist(erPosvNegScores),
+		erNegvPos = unlist(erNegvPosScores))
 		
+
+allCancers <- read.table("~/allCancers.txt",sep="\t",stringsAsFactors=FALSE,header=TRUE)
 
 ids2 <- which(res$entity.tissueType=="" | is.na(res$entity.tissueType))
 res$entity.tissueType[ids2] <- allCancers$tissue[match(res$entity.study[ids2], allCancers$name)]
 res$numSamples <- sapply(arScores, length)
 
 for(i in 1:length(ids2)){
-	ent <- getEntity(res2$entity.id[ids2[i]]); 
-	propertyValue(ent, 'tissueType') <- res2$entity.tissueType[ids2[i]]
+	ent <- getEntity(res$entity.id[ids2[i]]); 
+	propertyValue(ent, 'tissueType') <- res$entity.tissueType[ids2[i]]
 	ent <- updateEntity(ent)
 }
 
-meta <- res2
+meta <- res
 scores$study <- rep(meta$entity.study, sapply(arScores, length))
 scores$platform <- rep(meta$entity.platform, sapply(arScores, length))
-scores$tissue<- rep(meta$entity.tissueType, sapply(arScores, length))
+scores$tissue<- tolower(rep(meta$entity.tissueType, sapply(arScores, length)))
 save(meta, scores, file="~/me.Rda")
 
 allCancers <- read.table("~/allCancers.txt",sep="\t",stringsAsFactors=FALSE,header=TRUE)
