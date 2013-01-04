@@ -160,7 +160,6 @@ scores <- data.frame(celFileName =  unlist(sapply(arScores, names)),
 		erPosvNeg = unlist(erPosvNegScores),
 		erNegvPos = unlist(erNegvPosScores))
 		
-
 allCancers <- read.table("~/allCancers.txt",sep="\t",stringsAsFactors=FALSE,header=TRUE)
 
 ids2 <- which(res$entity.tissueType=="" | is.na(res$entity.tissueType))
