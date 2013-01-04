@@ -71,7 +71,6 @@ ids <- c(which(res$entity.platform == "hgu133plus2"),
 		which(res$entity.platform == "hugene10stv1"),
 		which(res$entity.platform == "huex10stv2"))
 
-
 ents <- list()
 for(i in 1:length(ids)){ 
 	cat("\r", i); 
