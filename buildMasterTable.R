@@ -1,0 +1,6 @@
+allCancers <- read.table("~/allCancers.txt",sep="\t",stringsAsFactors=FALSE,header=TRUE)
+metadata <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="metadata"')
+raw <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="raw"')
+processed <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="processed"')
+fic <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="fic"')
+probeWeights <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="probeWeights"')
