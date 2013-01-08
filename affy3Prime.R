@@ -15,12 +15,26 @@ toProcess <- cbind(toProcess[,c(1,2,10,11,12)],rep(1:9,times=5)[1:nrow(toProcess
 colnames(toProcess)[5] <- 'bin'
 toProcess <- toProcess[order(toProcess[,5]),]
 
-ids <- which(toProcess$bin == 2)
+ids <- which(toProcess$bin != 0)
 cmds <- paste('Rscript affy3Prime.R', toProcess$name[ids], ';')
 sapply(cmds, function(x){
 			cat(x, ' & ', "\n")
 		})
 write.table(cmds, row.names=FALSE, quote=FALSE)
+
+Rscript affy3Prime.R GSE30258 ;
+Rscript affy3Prime.R GSE17818 ;
+Rscript affy3Prime.R GSE23980 ;
+Rscript affy3Prime.R GSE7390 ;
+Rscript affy3Prime.R GSE22470 ;
+Rscript affy3Prime.R GSE26971 ;
+Rscript affy3Prime.R GSE37382 ;
+Rscript affy3Prime.R GSE28497 ;
+Rscript affy3Prime.R GSE25055 ;
+Rscript affy3Prime.R GSE19784 ;
+Rscript affy3Prime.R GSE14520 ;
+Rscript affy3Prime.R GSE19301 ;
+Rscript affy3Prime.R GSE13159 ;
 
 .getRawEntity <- function(id){
 	qry <- synapseQuery(paste('select id, name, numSamples, study,platform from entity where entity.benefactorId == "syn1450028" and entity.status=="raw" and entity.study=="',id,'"', sep=""))

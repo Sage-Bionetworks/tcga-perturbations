@@ -4,3 +4,8 @@ raw <- synapseQuery('select id, name, numSamples, study, platform from entity wh
 processed <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="processed"')
 fic <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="fic"')
 probeWeights <- synapseQuery('select id, name, numSamples, study, platform from entity where entity.benefactorId == "syn1450028" and entity.status=="probeWeights"')
+
+
+
+
+

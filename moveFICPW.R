@@ -162,3 +162,25 @@ bigQuery <- function(qry, limit=100)
 		return(size)
 	}
 }
+
+.addGeneExpression <- function(workflowObj, rawEntity, parentId){
+	dat <- exprs(workflowObj[[1]]$eset)
+	datName <- annotValue(rawEntity,'study')
+	datName <- paste(datName, '_',names(workflowObj[1]),'_gene.tsv', sep="")
+	rownames(dat) <- gsub("_mt", "_eg", rownames(dat))
+	dat <- round(dat,3)
+	write.table(dat, file=datName, sep="\t", quote=FALSE)
+	newEnt <- Data(list(name=datName, parentId=parentId))
+	propertyValue(newEnt, 'platform') <- names(workflowObj)[1]
+	propertyValue(newEnt, 'species') <- 'Homo sapiens'
+	propertyValue(newEnt, 'numSamples') <- ncol(dat)
+	newEnt <- addFile(newEnt,datName)
+	annotValue(newEnt, 'fileSize') <- .prettifyFileSize(file.info(datName)$size)
+	annotValue(newEnt, 'status') <- 'processed'
+	annotValue(newEnt, 'summaryType') <- 'gene'
+	annotValue(newEnt, 'study') <- annotValue(rawEntity,'study')
+	annotValue(newEnt, 'molecFeatureType') <- 'RNA'
+	annotValue(newEnt, 'dataType') <- 'mRNA'
+	dataEnt <- storeEntity(newEnt)	
+}
+
