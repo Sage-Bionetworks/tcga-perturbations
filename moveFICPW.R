@@ -145,6 +145,7 @@ bigQuery <- function(qry, limit=100)
 	}
 	allQryRes
 }
+
 .writeEntity <- function(content, newName){
 	write.table(content, sep="\t",quote=FALSE, file=newName)
 }

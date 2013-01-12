@@ -48,7 +48,7 @@ Rscript affy3Prime.R GSE13159 ;
 	return(dat)
 }
 
-qry <- .getRawEntity('GSE19949')
+qry <- .getRawEntity('GSE21036')
 rawEntity <- loadEntity(qry$entity.id[1])
 rawDataDir <- file.path(rawEntity$cacheDir)
 

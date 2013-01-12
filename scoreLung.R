@@ -58,20 +58,6 @@ compareSignatureEnrichment <- function (gic, sig1, sig2)
 	return(dat)
 }
 
-res <- synapseQuery('select id, name, numSamples, platform, study, tissueType from entity where entity.benefactorId=="syn1450028" and entity.status=="processed"');
-res <- res[grep("GSE", res$entity.name),]
-res <- res[!grepl('unsupervised.', res$entity.name),]
-res <- res[!duplicated(res$entity.name),]
-
-ids <- c(which(res$entity.platform == "hgu133plus2"),
-		which(res$entity.platform == "hgu133a"),
-		which(res$entity.platform == "hthgu133a"),
-		which(res$entity.platform == "hgu133a2"),
-		which(res$entity.platform == "hugene10stv1"),
-		which(res$entity.platform == "huex10stv2"))
-
-res <- res[ids,]
-
 # Build ER signature
 breastIds <- res$entity.id[which(res$entity.tissueType == "breast")]
 sapply(breastIds[1:10], function(x){ 
@@ -91,11 +77,33 @@ erCors <- rowMeans(cors2)
 erPos <- names(sort(-erCors))[1:250]
 erNeg <- names(sort(erCors))[1:250]
 
+# Get the data sets
+res <- synapseQuery('select id, name, numSamples, platform, study, tissueType from entity where entity.benefactorId=="syn1450028" and entity.status=="processed"');
+res <- res[grep("GSE", res$entity.name),]
+res <- res[!grepl('unsupervised.', res$entity.name),]
+res <- res[!duplicated(res$entity.name),]
+
+ids <- c(which(res$entity.platform == "hgu133plus2"),
+		which(res$entity.platform == "hgu133a"),
+		which(res$entity.platform == "hthgu133a"),
+		which(res$entity.platform == "hgu133a2"),
+		which(res$entity.platform == "hugene10stv1"),
+		which(res$entity.platform == "huex10stv2"))
+
+# Reduce to affymetrix platforms
+res <- res[ids,]
+
+# Load the data
 ents <- list()
 for(i in 1:nrow(res)){ 
 	cat("\r", i); 
 	ents[[i]] <- .loadEntity(res$entity.id[i])
 }
+
+# How do we find metadata
+# How do we find studies
+# How do we find data
+# Why can't he access the account - blogsdon@fhcrc.org
 
 arScores <- list()
 rplScores <- list()
@@ -117,8 +125,8 @@ for(i in 2:length(ents)){
 dat2 <- as.matrix(ents[[1]])[nms,]	
 allDat <- matrix(NA, nr=length(nms), nc=sum(sapply(ents, dim)[2,]))
 
+# Scoring each sample and signature of interest
 for(i in 1:length(ents)){
-#for(i in c(15,16,35)){
 	cat("\r",i)
 	dat2 <- as.matrix(ents[[i]])[nms,]
 	mode(dat2) <- "numeric"
@@ -204,16 +212,26 @@ xyplot(scores$ar ~ 1:length(scores$ar), groups=rep(tolower(tissue), sapply(b,len
 dev.off()
 
 png(file="arTissueScoresByTissue.png")
-bwplot(rep(tolower(tissue),sapply(b,length)) ~ scores$ar, main='AR Signature Scores', xlab="Signature Scores")
+bwplot(reorder(tolower(scores$tissue), scores$ar, median) ~ scores$ar, 
+		main='AR Signature Scores', 
+		xlab="Signature Scores")
 dev.off()
 
-xyplot(unlist(b) ~ 1:length(unlist(b)), groups=rep(tissue, sapply(b,length)), auto.key=list(columns=5))
+bwplot(reorder(tolower(scores$tissue), scores$erPosvNeg, median) ~ scores$erPosvNeg, 
+		main='ER Pos vs Neg Signature Scores', 
+		xlab="Signature Scores")
 
+bwplot(reorder(tolower(scores$tissue), scores$hif1, median) ~ scores$hif1, 
+		main='HIF1 Signature Scores', 
+		xlab="Signature Scores")
 
+bwplot(reorder(tolower(scores$tissue), scores$erPos, median) ~ scores$erPos, 
+		main="ER+ Signature Scores",
+		xlab="Signature Scores")
 
-xyplot(unlist(b) ~ 1:length(unlist(b)), 
-		groups=rep(1:length(b), sapply(b, length)))
-
+bwplot(reorder(tolower(scores$tissue), scores$myc, median) ~ scores$myc, 
+		main="MYC Signature Scores",
+		xlab="Signature Scores")
 
 sapply(synapseIds, function(x){ 
 		qry <- paste('select id, name, platform, tissueType, disease from entity where entity.id=="', x,'"')
@@ -237,7 +255,6 @@ lab <- ifelse(grepl("Normal", gse19804_metadata$X.Sample_title), 'Normal', 'Canc
 rownames(gse19804_data) <- gsub("_mt", "_eg", rownames(gse19804_data))
 gse19804_sig <- calcSignatureEnrichment(gse19804_data, mycSigGenes)
 xyplot(gse19804_sig[2,] ~ 1:ncol(gse19804_sig), groups=lab)
-
 
 ent  <- loadEntity('syn341738')
 gse19188_metadata <- read.table(file.path(ent$cacheDir, ent$files), sep="\t", header=TRUE)
