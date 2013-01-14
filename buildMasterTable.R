@@ -31,52 +31,65 @@ bigQuery <- function(qry, limit=100)
 # 1. Determine if we have a study for it
 # 2. Add appropriate annotations to it
 
-id <- match(allCancers$name, studies$folder.name)
+id <- match(allCancers$study, studies$folder.name)
 id <- id[!is.na(id)]
-validCancers <- merge(allCancers, studies, by.x="name", by.y="folder.name")
+validCancers <- merge(allCancers, studies, by.x="study", by.y="folder.name")
 validCancers$metadata <- validCancers$probeWeights.id <- validCancers$raw.id <- validCancers$data.id <- validCancers$fic.id <- rep(NA, nrow(validCancers))
 
 for(i in 1:nrow(validCancers)){
 	cat("\r", i, "of", nrow(validCancers))
+	validCancers[i,] <- .getIds(validCancers,i)
+#	annots <- .clean(validCancers,i)
+	# get folder	
+}
+
+.clean <- function(validCancers,i){
+	validCancers[i,which(validCancers[i,] != "" & validCancers[i,] != "NA")]
+}
+
+.getIds <- function(validCancers,i){
 	platform <- validCancers$platform[i]
 	# Get the raw data
-	res <- synapseQuery(paste('select id, name from entity where entity.study == "', validCancers$name[i], '" and entity.platform=="', platform,'" and entity.status=="raw"',sep=""))
+	res <- synapseQuery(paste('select id, name, platform from entity where entity.benefactorId == "syn1450028" and entity.study == "', validCancers$study[i], '" and entity.status=="raw"',sep=""))
 	if(!is.null(res)){
 		# Store the rawId
 		res <- res[!duplicated(res$entity.id),]
 		# Can potentially be many raw entities.  Use array express as the example.
-		validCancers$raw.id[i] <- res$entity.id
+		if(nrow(res) > 0){
+			validCancers$raw.id[i] <- paste(res$entity.id,collapse=",")
+		}else{
+			validCancers$raw.id[i] <- res$entity.id
+		}
 	}
-	
-	# Query for the processed data.  If available then store it
-	res <- synapseQuery(paste('select id, name from entity where entity.parentId=="',validCancers$folder.id[i],'" and entity.platform=="', platform,'" and entity.status=="processed"',sep=""))
+	# Query for the processed data summarized to the gene level.  If available then store it
+	res <- synapseQuery(paste('select id, name from entity where entity.benefactorId == "syn1450028" and entity.platform=="', platform,'" and entity.status=="processed" and entity.summaryType == "gene" and entity.study=="', validCancers$study[i],'"',sep=""))
 	if(!is.null(res)){
 		res <- res[!duplicated(res$entity.id),]
 		# Store the processed Id
 		validCancers$data.id[i] <- res$entity.id
 	}
 	# Get the probe weights
-	res <- synapseQuery(paste('select id, name from entity where entity.parentId=="',validCancers$folder.id[i],'" and entity.platform=="', platform,'" and entity.status=="probeWeights"',sep=""))
+	res <- synapseQuery(paste('select id, name from entity where entity.benefactorId == "syn1450028" and entity.platform=="', platform,'" and entity.status=="probeWeights" and entity.study=="', validCancers$study[i],'"',sep=""))
 	if(!is.null(res)){
 		res <- res[!duplicated(res$entity.id),]
 		# Store the probe weights Id
 		validCancers$probeWeights.id[i] <- res$entity.id
 	}
 	# Get the fic
-	res <- synapseQuery(paste('select id, name from entity where entity.parentId=="',validCancers$folder.id[i],'" and entity.platform=="', platform,'" and entity.status=="fic"',sep=""))
+	res <- synapseQuery(paste('select id, name from entity where entity.benefactorId == "syn1450028" and entity.platform=="', platform,'" and entity.status=="fic" and entity.study=="', validCancers$study[i],'"',sep=""))
 	if(!is.null(res)){
 		res <- res[!duplicated(res$entity.id),]
 		# Store the fic Id
 		validCancers$fic.id[i] <- res$entity.id
 	}
 	# Get the metadata
-	res <- synapseQuery(paste('select id, name from entity where entity.parentId=="',validCancers$folder.id[i],'" and entity.status=="metadata"',sep=""))
+	res <- synapseQuery(paste('select id, name from entity where entity.benefactorId == "syn1450028" and entity.status=="metadata" and entity.study=="', validCancers$study[i],'"',sep=""))
 	if(!is.null(res)){
 		res <- res[!duplicated(res$entity.id),]
 		# Store the fic Id
 		validCancers$metadata[i] <- res$entity.id
 	}
-	
+	validCancers[i,]
 }
 
 getChildren <- function(x){ 
