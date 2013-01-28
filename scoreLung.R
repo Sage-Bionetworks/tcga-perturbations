@@ -29,22 +29,28 @@ stemCells <- read.table("~/stemCells.txt",stringsAsFactors=FALSE)[,1]
 stem <- names(eg2sym)[match(stemCells, eg2sym)];
 
 # calculate signature enrichment for a single signature
-calcSignatureEnrichment <- function (gic, sig) 
+calcSignatureEnrichment <- function (dat, sig) 
 {
-	sig <- intersect(sig, rownames(gic))
-	other <- setdiff(rownames(gic), sig)
-	ks.results <- apply(gic, 2, function(x) {
-				res <- ks.test(x[other], x[sig], alternative = "greater")
-				c(res$p.value, res$statistic)
-			})
+	sig <- intersect(sig, rownames(dat))
+	other <- setdiff(rownames(dat), sig)
+	if(length(other) > 5000){ 
+		other <- sample(other, 5000)
+	}
+	ks.results <- matrix(0, nr=2, nc=ncol(dat))
+	for(i in 1:ncol(ks.results)){
+		cat("\r",i)
+		res <- ks.test(dat[other,i], dat[sig,i], alternative = "greater")
+		ks.results[,i] <- c(res$p.value, res$statistic)		
+	}
+	ks.results
 }
 
 # compare signature enrichment between two signatures
-compareSignatureEnrichment <- function (gic, sig1, sig2) 
+compareSignatureEnrichment <- function (dat, sig1, sig2) 
 {
-	sig1 <- intersect(sig1, rownames(gic))
-	sig2 <- intersect(sig2, rownames(gic))
-	ks.results <- apply(gic, 2, function(x) {
+	sig1 <- intersect(sig1, rownames(dat))
+	sig2 <- intersect(sig2, rownames(dat))
+	ks.results <- apply(dat, 2, function(x) {
 				res <- ks.test(x[sig1], x[sig2], alternative = "greater")
 				c(res$p.value, res$statistic)
 			})
@@ -122,8 +128,6 @@ for(i in 2:length(ents)){
 	nms <- intersect(nms, rownames(ents[[i]]))
 }
 
-dat2 <- as.matrix(ents[[1]])[nms,]	
-allDat <- matrix(NA, nr=length(nms), nc=sum(sapply(ents, dim)[2,]))
 
 # Scoring each sample and signature of interest
 for(i in 1:length(ents)){
@@ -180,11 +184,11 @@ for(i in 1:length(ids2)){
 	ent <- updateEntity(ent)
 }
 
-meta <- res
-scores$study <- rep(meta$entity.study, sapply(arScores, length))
-scores$platform <- rep(meta$entity.platform, sapply(arScores, length))
-scores$tissue<- tolower(rep(meta$entity.tissueType, sapply(arScores, length)))
-save(meta, scores, file="~/me.Rda")
+tmp <- res
+scores$study <- rep(tmp$entity.study, sapply(arScores, length))
+scores$platform <- rep(tmp$entity.platform, sapply(arScores, length))
+scores$tissue<- tolower(rep(tmp$entity.tissueType, sapply(arScores, length)))
+save(tmp, scores, file="~/me.Rda")
 
 allCancers <- read.table("~/allCancers.txt",sep="\t",stringsAsFactors=FALSE,header=TRUE)
 tmp <- allCancers[match(res$study, allCancers$name),]
@@ -315,3 +319,27 @@ diag(h) <- 0
 best <- names(which(apply(h,2,max) > 25))
 h2 <- g[[1]][best,best]
 for(i in 2:length(g)){ h2 <- h2 + g[[i]][best,best] }
+
+
+ent <- loadEntity('syn1584042')
+rna2 <- as.matrix(read.table(file.path(ent$cacheDir, ent$files), sep="\t", header=TRUE, stringsAsFactors=FALSE))
+ent2 <- loadEntity('syn1584814')
+cnv2 <- as.matrix(read.table(file.path(ent2$cacheDir, ent2$files), sep="\t", header=TRUE, stringsAsFactors=FALSE))
+ent3 <- loadEntity('syn1584044')
+meta <- read.table(file.path(ent3$cacheDir, ent3$files), sep="\t", header=TRUE, stringsAsFactors=FALSE, row.names=1)
+rownames(meta) <- gsub("-", ".", rownames(meta))
+th <- intersect(rownames(meta), intersect(colnames(cnv2), colnames(rna2)))
+rna <- rna2[,th]
+cnv <- cnv2[,th]
+meta <- meta[th,]
+
+ids <- which(as.numeric(rna["2289_eg",]) > 9 & as.numeric(rna["9073_eg",]) > 8)
+lab <- rep(0, ncol(rna)); lab[ids] <- 1
+X <- model.matrix(~ lab)
+cfs <- solve(t(X) %*% X) %*% t(X) %*% t(rna)
+cfs2 <- solve(t(X) %*% X) %*% t(X) %*% t(cnv)
+
+up <- names(which(cfs[2,] > 0.8))
+
+sig <- calcSignatureEnrichment(rna, up)
+

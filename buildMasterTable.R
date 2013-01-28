@@ -34,13 +34,31 @@ bigQuery <- function(qry, limit=100)
 id <- match(allCancers$study, studies$folder.name)
 id <- id[!is.na(id)]
 validCancers <- merge(allCancers, studies, by.x="study", by.y="folder.name")
-validCancers$metadata <- validCancers$probeWeights.id <- validCancers$raw.id <- validCancers$data.id <- validCancers$fic.id <- rep(NA, nrow(validCancers))
+validCancers$metadata.id <- validCancers$probeWeights.id <- validCancers$raw.id <- validCancers$data.id <- validCancers$fic.id <- rep(NA, nrow(validCancers))
 
-for(i in 1:nrow(validCancers)){
+for(i in 11:nrow(validCancers)){
 	cat("\r", i, "of", nrow(validCancers))
+	ent <- getEntity(validCancers$folder.id[i])
+	annotValue(ent, 'tissueType') <- validCancers$tissueType[i]
+	annotValue(ent, 'disease') <- validCancers$disease[i]
+	annotValue(ent, 'cancerType') <- validCancers$cancerType[i]
+	annotValue(ent, 'cancerSubType') <- validCancers$cancerSubType[i]
+	for(j in 1:17){
+		ent <- .addAnnot(ent, names(validCancers)[j], validCancers[i,j])		
+	}
+	ent <- updateEntity(ent)	
 	validCancers[i,] <- .getIds(validCancers,i)
 #	annots <- .clean(validCancers,i)
 	# get folder	
+}
+
+.addAnnot <- function(ent, name, value){
+	if(any (value == "",  is.na(value), value == "NULL", is.null(value))){
+		cat("Nothing for:", name, "\n")
+		return(ent)
+	}
+	annotValue(ent, name) <- value
+	return(ent)
 }
 
 .clean <- function(validCancers,i){
@@ -67,6 +85,7 @@ for(i in 1:nrow(validCancers)){
 		res <- res[!duplicated(res$entity.id),]
 		# Store the processed Id
 		validCancers$data.id[i] <- res$entity.id
+		ent <- .annotate(res$entity.id, validCancers, i)
 	}
 	# Get the probe weights
 	res <- synapseQuery(paste('select id, name from entity where entity.benefactorId == "syn1450028" and entity.platform=="', platform,'" and entity.status=="probeWeights" and entity.study=="', validCancers$study[i],'"',sep=""))
@@ -74,6 +93,7 @@ for(i in 1:nrow(validCancers)){
 		res <- res[!duplicated(res$entity.id),]
 		# Store the probe weights Id
 		validCancers$probeWeights.id[i] <- res$entity.id
+		ent <- .annotate(res$entity.id, validCancers, i)
 	}
 	# Get the fic
 	res <- synapseQuery(paste('select id, name from entity where entity.benefactorId == "syn1450028" and entity.platform=="', platform,'" and entity.status=="fic" and entity.study=="', validCancers$study[i],'"',sep=""))
@@ -81,15 +101,26 @@ for(i in 1:nrow(validCancers)){
 		res <- res[!duplicated(res$entity.id),]
 		# Store the fic Id
 		validCancers$fic.id[i] <- res$entity.id
+		ent <- .annotate(res$entity.id, validCancers, i)
 	}
 	# Get the metadata
 	res <- synapseQuery(paste('select id, name from entity where entity.benefactorId == "syn1450028" and entity.status=="metadata" and entity.study=="', validCancers$study[i],'"',sep=""))
 	if(!is.null(res)){
 		res <- res[!duplicated(res$entity.id),]
-		# Store the fic Id
-		validCancers$metadata[i] <- res$entity.id
+		# Store the metadata id
+		validCancers$metadata.id[i] <- res$entity.id
+		ent <- .annotate(res$entity.id, validCancers, i)
 	}
 	validCancers[i,]
+}
+
+.annotate <- function(entId, validCancers, i){
+	ent <- getEntity(entId)
+	propertyValue(ent, 'tissueType') <- validCancers$tissueType[i]
+	propertyValue(ent, 'disease') <- validCancers$disease[i]
+	annotValue(ent, 'cancerType') <- validCancers$cancerType[i]
+	annotValue(ent, 'cancerSubType') <- validCancers$cancerSubType[i]
+	ent <- updateEntity(ent)
 }
 
 getChildren <- function(x){ 
